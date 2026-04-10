@@ -7,10 +7,11 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/sachilz/dockerized-mern-app'
+                url: 'https://github.com/sachilz/dockerized-mern-app'
             }
         }
 
@@ -29,7 +30,13 @@ pipeline {
         stage('SonarQube Scan') {
             steps {
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                    bat "\"${SONAR_SCANNER}\" -Dsonar.projectKey=dockerized-mern-app -Dsonar.sources=. -Dsonar.login=%SONAR_TOKEN%"
+                    bat """
+                    \"${SONAR_SCANNER}\" ^
+                    -Dsonar.projectKey=dockerized-mern-app ^
+                    -Dsonar.sources=. ^
+                    -Dsonar.host.url=http://localhost:9000 ^
+                    -Dsonar.token=%SONAR_TOKEN%
+                    """
                 }
             }
         }
