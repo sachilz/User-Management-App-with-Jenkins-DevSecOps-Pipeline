@@ -2,7 +2,8 @@ pipeline {
     agent any
 
     environment {
-        GITLEAKS_PATH = "C:\\gitleaks\\gitleaks.exe"
+        GITLEAKS_PATH = "C:\\DevSecOps\\gitleaks\\gitleaks.exe"
+        SONAR_SCANNER = "C:\\DevSecOps\\sonar-scanner\\bin\\sonar-scanner.bat"
     }
 
     stages {
@@ -19,9 +20,17 @@ pipeline {
             }
         }
 
-         stage('Gitleaks Secret Scan') {
+        stage('Gitleaks Secret Scan') {
             steps {
-                bat "${GITLEAKS_PATH} detect --source . --verbose"
+                bat "\"${GITLEAKS_PATH}\" detect --source . --verbose"
+            }
+        }
+
+        stage('SonarQube Scan') {
+            steps {
+                withSonarQubeEnv('sonarqube') {
+                    bat "\"${SONAR_SCANNER}\" -Dsonar.projectKey=dockerized-mern-app -Dsonar.sources=."
+                }
             }
         }
     }
