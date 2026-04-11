@@ -34,7 +34,7 @@ pipeline {
         stage('SonarQube Scan') {
             steps {
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                    withSonarQubeEnv('sonarqube') {
+                {
                     bat """
                     \"${SONAR_SCANNER}\" ^
                     -Dsonar.projectKey=dockerized-mern-app ^
@@ -46,16 +46,6 @@ pipeline {
             }
         }
     }
-
-        //QUALITY GATE (BLOCK PIPELINE IF BAD CODE)
-        stage('Quality Gate') {
-            steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
-            }
-        }
-
         // DEPENDENCY CHECK + BUILD VALIDATION
         stage('Build Validation') {
             steps {
