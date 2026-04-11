@@ -10,23 +10,40 @@ app.use(express.json());
 app.use(cors());
 
 const mongoUrl = process.env.MONGODB_URL;
-if (!mongoUrl) {
+if (mongoUrl === undefined || mongoUrl === null || mongoUrl === '') {
   console.error("Missing MONGODB_URL in backend/.env. Database features will not work.");
 } else {
-  mongoose.connect(mongoUrl)
-    .then(() => console.log("MongoDB connected"))
-    .catch((err) => console.log(err));
+  const connectDB = async () => {
+  try {
+    await mongoose.connect(mongoUrl);
+    console.log("MongoDB connected");
+  } catch (err) {
+    console.log(err);
+  }
+};
+
+connectDB();
 }
 
 app.post("/user", async (req, res) => {
-  const user = new User(req.body);
-  await user.save();
-  res.send(user);
+  try {
+    const user = new User(req.body);
+    await user.save();
+    res.status(201).send(user);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: "Failed to create user" });
+  }
 });
 
 app.get("/users", async (req, res) => {
-  const users = await User.find();
-  res.send(users);
+  try {
+    const users = await User.find();
+    res.send(users);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: "Failed to fetch users" });
+  }
 });
 
 // ✏️ UPDATE user
@@ -40,14 +57,20 @@ app.put("/user/:id", async (req, res) => {
 
     res.send(updatedUser);
   } catch (err) {
-    res.status(500).send(err);
+    console.error(err);
+    res.status(500).send({ message: "Failed to update user" });
   }
 });
 
 // DELETE
 app.delete("/user/:id", async (req, res) => {
-  await User.findByIdAndDelete(req.params.id);
-  res.send("User deleted");
+  try {
+    await User.findByIdAndDelete(req.params.id);
+    res.send("User deleted");
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: "Failed to delete user" });
+  }
 });
 
 // 📦 Model
