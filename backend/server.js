@@ -9,11 +9,14 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// 🔗 MongoDB connection (IMPORTANT: use service name "mongo")
-mongoose.connect(process.env.MONGODB_URL, {
-})
-.then(() => console.log("MongoDB connected"))
-.catch(err => console.log(err));
+const mongoUrl = process.env.MONGODB_URL;
+if (!mongoUrl) {
+  console.error("Missing MONGODB_URL in backend/.env. Database features will not work.");
+} else {
+  mongoose.connect(mongoUrl)
+    .then(() => console.log("MongoDB connected"))
+    .catch((err) => console.log(err));
+}
 
 app.post("/user", async (req, res) => {
   const user = new User(req.body);

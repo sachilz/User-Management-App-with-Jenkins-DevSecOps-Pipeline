@@ -5,14 +5,24 @@ function App() {
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [editId, setEditId] = useState(null);
+  const [error, setError] = useState("");
 
   const BASE_URL = process.env.REACT_APP_BACKEND_URL || "/api";
 
   // 📥 GET users
   const fetchUsers = async () => {
-    const res = await fetch(`${BASE_URL}/users`);
-    const data = await res.json();
-    setUsers(data);
+    try {
+      const res = await fetch(`${BASE_URL}/users`);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch users (${res.status})`);
+      }
+      const data = await res.json();
+      setUsers(data);
+      setError("");
+    } catch (err) {
+      setError("Cannot reach backend API. Check backend container and REACT_APP_BACKEND_URL.");
+      console.error(err);
+    }
   };
 
   useEffect(() => {
@@ -26,29 +36,50 @@ function App() {
   // ➕ CREATE or ✏️ UPDATE
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editId) {
-      await fetch(`${BASE_URL}/user/${editId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, age }),
-      });
-      setEditId(null);
-    } else {
-      await fetch(`${BASE_URL}/user`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, age }),
-      });
+    try {
+      if (editId) {
+        const res = await fetch(`${BASE_URL}/user/${editId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, age }),
+        });
+        if (!res.ok) {
+          throw new Error(`Failed to update user (${res.status})`);
+        }
+        setEditId(null);
+      } else {
+        const res = await fetch(`${BASE_URL}/user`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, age }),
+        });
+        if (!res.ok) {
+          throw new Error(`Failed to create user (${res.status})`);
+        }
+      }
+      setName("");
+      setAge("");
+      fetchUsers();
+      setError("");
+    } catch (err) {
+      setError("Request failed. Please check backend and try again.");
+      console.error(err);
     }
-    setName("");
-    setAge("");
-    fetchUsers();
   };
 
   // ❌ DELETE
   const deleteUser = async (id) => {
-    await fetch(`${BASE_URL}/user/${id}`, { method: "DELETE" });
-    fetchUsers();
+    try {
+      const res = await fetch(`${BASE_URL}/user/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        throw new Error(`Failed to delete user (${res.status})`);
+      }
+      fetchUsers();
+      setError("");
+    } catch (err) {
+      setError("Delete failed. Please check backend and try again.");
+      console.error(err);
+    }
   };
 
   // ✏️ EDIT
@@ -140,6 +171,7 @@ function App() {
     <div style={styles.container}>
       <div style={styles.card}>
         <h2 style={styles.header}>User Management</h2>
+        {error && <p style={{ color: "#dc3545", marginBottom: "12px" }}>{error}</p>}
 
         {/* FORM */}
         <form onSubmit={handleSubmit} style={styles.form}>
