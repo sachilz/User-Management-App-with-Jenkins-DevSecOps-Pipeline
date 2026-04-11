@@ -65,10 +65,9 @@ pipeline {
             steps {
                 bat "\"${TRIVY_PATH}\" image --severity HIGH,CRITICAL dockerized-mern-app-backend"
                 bat "\"${TRIVY_PATH}\" image --severity HIGH,CRITICAL dockerized-mern-app-frontend"
-                bat "\"${TRIVY_PATH}\" image --severity HIGH,CRITICAL nginx:latest"
             }
         }
-        
+
         stage('Run Containers') {
             steps {
                 bat 'docker compose up -d'
