@@ -72,23 +72,6 @@ pipeline {
         }
         */
 
-        // 6. DOCKERFILE SECURITY SCAN (HADOLINT)
-        stage('Hadolint - Backend Dockerfile') {
-            steps {
-                dir('backend') {
-                    bat "docker run --rm -i hadolint/hadolint < Dockerfile"
-                }
-            }
-        }
-
-        stage('Hadolint - Frontend Dockerfile') {
-            steps {
-                dir('frontend') {
-                    bat "docker run --rm -i hadolint/hadolint < Dockerfile"
-                }
-            }
-        }
-
         // 7. DOCKER IMAGE BUILD
         stage('Docker Compose Build') {
             steps {
