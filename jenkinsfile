@@ -45,6 +45,7 @@ pipeline {
                 }
             }
         }
+    }
 
         //QUALITY GATE (BLOCK PIPELINE IF BAD CODE)
         stage('Quality Gate') {
