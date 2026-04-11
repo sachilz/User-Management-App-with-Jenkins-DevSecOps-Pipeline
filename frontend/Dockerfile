@@ -2,10 +2,13 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-COPY package.json .
+# Copy both package files (important for lock-based install)
+COPY package*.json ./
 
-RUN npm install
+# Use deterministic install
+RUN npm ci
 
+# Copy rest of the app
 COPY . .
 
 EXPOSE 3000

@@ -4,12 +4,15 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - REACT_APP_BACKEND_URL= /api
+      - REACT_APP_BACKEND_URL=/api
 
   backend:
     build: ./backend
+    ports:
+      - "5000:5000"
     env_file:
       - ./backend/.env
+    restart: always
 
   nginx:
     image: nginx:latest
@@ -20,3 +23,4 @@ services:
     depends_on:
       - frontend
       - backend
+    restart: always
