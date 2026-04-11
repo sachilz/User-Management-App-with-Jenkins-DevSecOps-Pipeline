@@ -5,6 +5,7 @@ pipeline {
         GITLEAKS_PATH = "C:\\DevSecOps\\gitleaks\\gitleaks.exe"
         SONAR_SCANNER = "C:\\DevSecOps\\sonar-scanner\\bin\\sonar-scanner.bat"
         TRIVY_PATH = "C:\\DevSecOps\\trivy\\trivy.exe"
+        HADOLINT_PATH = "C:\\DevSecOps\\hadolint\\hadolint.exe"
     }
 
     stages {
@@ -22,12 +23,14 @@ pipeline {
             }
         }
 
+        # SECRET SCAN (EARLY SECURITY)
         stage('Gitleaks Secret Scan') {
             steps {
                 bat "\"${GITLEAKS_PATH}\" detect --source . --verbose"
             }
         }
 
+        # CODE ANALYSIS
         stage('SonarQube Scan') {
             steps {
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
@@ -42,11 +45,21 @@ pipeline {
             }
         }
 
+        # QUALITY GATE (BLOCK PIPELINE IF BAD CODE)
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        # DEPENDENCY CHECK + BUILD VALIDATION
         stage('Build Validation') {
             steps {
                 dir('backend') {
-                bat 'npm install'
-            }
+                    bat 'npm install'
+                }
 
                 dir('frontend') {
                     bat 'npm install'
@@ -54,13 +67,22 @@ pipeline {
                 }
             }
         }
-        
+
+        # DOCKERFILE SECURITY (HADOLINT)
+        stage('Dockerfile Security Scan (Hadolint)') {
+            steps {
+                bat "\"${HADOLINT_PATH}\" Dockerfile"
+            }
+        }
+
+        # DOCKER BUILD (CREATE IMAGES)
         stage('Docker Compose Build') {
             steps {
                 bat 'docker compose build'
             }
         }
 
+        # IMAGE SECURITY SCAN (TRIVY AFTER BUILD)
         stage('Trivy Container Scan') {
             steps {
                 bat "\"${TRIVY_PATH}\" image --severity HIGH,CRITICAL dockerized-mern-app-backend"
@@ -68,14 +90,16 @@ pipeline {
             }
         }
 
+        # INJECT SECRETS (ENV FILE)
         stage('Inject Env File') {
             steps {
                 withCredentials([file(credentialsId: 'env-file', variable: 'ENV_FILE')]) {
-                bat "copy \"%ENV_FILE%\" backend\\.env"
+                    bat "copy \"%ENV_FILE%\" backend\\.env"
                 }
             }
         }
-        
+
+        # DEPLOY (RUN CONTAINERS)
         stage('Run Containers') {
             steps {
                 bat 'docker compose up -d'
