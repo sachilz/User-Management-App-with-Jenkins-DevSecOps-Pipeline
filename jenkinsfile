@@ -17,6 +17,12 @@ pipeline {
             }
         }
 
+        stage('List Files') {
+            steps {
+                bat 'dir'
+            }
+        }
+
         // 2. SECRET SCAN (EARLY - SHIFT LEFT SECURITY)
         stage('Gitleaks Secret Scan') {
             steps {
@@ -54,57 +60,35 @@ pipeline {
                 }
             }
         }
-        
 
-         stage('Docker Build Images') {
+        // 7. DOCKER IMAGE BUILD
+        stage('Docker Compose Build') {
             steps {
-                bat 'docker build -t %IMAGE_BACKEND% ./backend'
-                bat 'docker build -t %IMAGE_FRONTEND% ./frontend'
+                bat 'docker compose build'
             }
         }
 
         // 8. IMAGE SECURITY SCAN (AFTER BUILD)
         stage('Trivy Container Scan') {
             steps {
-                bat "\"${TRIVY_PATH}\" image --severity HIGH,CRITICAL IMAGE_BACKEND"
-                bat "\"${TRIVY_PATH}\" image --severity HIGH,CRITICAL IMAGE_FRONTEND"
+                bat "\"${TRIVY_PATH}\" image --severity HIGH,CRITICAL dockerized-mern-app-backend"
+                bat "\"${TRIVY_PATH}\" image --severity HIGH,CRITICAL dockerized-mern-app-frontend"
             }
         }
 
-         stage('Login to ECR') {
+        // 9. DEPLOYMENT CONFIG (BEFORE RUN)
+        stage('Inject Env File') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    bat """
-                    aws configure set aws_access_key_id %AWS_ACCESS_KEY_ID%
-                    aws configure set aws_secret_access_key %AWS_SECRET_ACCESS_KEY%
-                    aws configure set region %AWS_REGION%
-
-                    aws ecr get-login-password --region %AWS_REGION% | docker login --username AWS --password-stdin %ECR_URL%
-                    """
+                withCredentials([file(credentialsId: 'backend-env', variable: 'token')]){
+                    bat "copy \"%token%\" backend\\.env"
                 }
             }
         }
 
-        stage('Tag & Push to ECR') {
+        // 10. RUN APPLICATION
+        stage('Run Containers') {
             steps {
-                bat """
-                docker tag %IMAGE_BACKEND%:latest %ECR_URL%/%IMAGE_BACKEND%:latest
-                docker tag %IMAGE_FRONTEND%:latest %ECR_URL%/%IMAGE_FRONTEND%:latest
-
-                docker push %ECR_URL%/%IMAGE_BACKEND%:latest
-                docker push %ECR_URL%/%IMAGE_FRONTEND%:latest
-                """
-            }
-        }
-
-        stage('Deploy to EC2') {
-            steps {
-                bat """
-                ssh -o StrictHostKeyChecking=no ubuntu@<EC2_IP> ^
-                \"aws ecr get-login-password --region %AWS_REGION% | docker login --username AWS --password-stdin %ECR_URL% && ^
-                docker compose pull && ^
-                docker compose up -d\"
-                """
+                bat 'docker compose up -d'
             }
         }
     }
