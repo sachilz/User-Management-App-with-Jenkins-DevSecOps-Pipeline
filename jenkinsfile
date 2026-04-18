@@ -2,6 +2,12 @@ pipeline {
     agent any
 
     environment {
+        AWS_REGION = "us-east-1"
+        ECR_URL = "313772261399.dkr.ecr.us-east-1.amazonaws.com"
+
+        BACKEND_IMAGE = "backend"
+        FRONTEND_IMAGE = "frontend"
+
         GITLEAKS_PATH = "C:\\DevSecOps\\gitleaks\\gitleaks.exe"
         SONAR_SCANNER = "C:\\DevSecOps\\sonar-scanner\\bin\\sonar-scanner.bat"
         TRIVY_PATH = "C:\\DevSecOps\\trivy\\trivy.exe"
@@ -9,7 +15,6 @@ pipeline {
 
     stages {
 
-        // 1. SOURCE CODE
         stage('Checkout') {
             steps {
                 git branch: 'main',
@@ -23,14 +28,12 @@ pipeline {
             }
         }
 
-        // 2. SECRET SCAN (EARLY - SHIFT LEFT SECURITY)
-        stage('Gitleaks Secret Scan') {
+        stage('Gitleaks Scan') {
             steps {
                 bat "\"${GITLEAKS_PATH}\" detect --source . --verbose"
             }
         }
 
-        // 3. INSTALL + BUILD VALIDATION
         stage('Build Validation') {
             steps {
                 dir('backend') {
@@ -44,14 +47,13 @@ pipeline {
             }
         }
 
-        // 4. SAST SCAN (SONARQUBE)
         stage('SonarQube Scan') {
             steps {
                 withSonarQubeEnv('sonarqube') {
                     withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                         bat """
                         \"${SONAR_SCANNER}\" ^
-                        -Dsonar.projectKey=dockerized-mern-app ^
+                        -Dsonar.projectKey=user-management-app ^
                         -Dsonar.sources=. ^
                         -Dsonar.host.url=http://localhost:9000 ^
                         -Dsonar.login=%SONAR_TOKEN%
@@ -61,38 +63,48 @@ pipeline {
             }
         }
 
-        // 7. DOCKER IMAGE BUILD
-        stage('Docker Compose Build') {
+        stage('Docker Build Images') {
             steps {
-                bat 'docker compose build'
+                bat 'docker build -t backend ./backend'
+                bat 'docker build -t frontend ./frontend'
             }
         }
 
-        // 8. IMAGE SECURITY SCAN (AFTER BUILD)
-        stage('Trivy Container Scan') {
+        stage('Trivy Scan Backend') {
             steps {
-                bat "\"${TRIVY_PATH}\" image --severity HIGH,CRITICAL use-management-pipline-backend"
-                bat "\"${TRIVY_PATH}\" image --severity HIGH,CRITICAL use-management-pipline-frontend"
+                bat "\"${TRIVY_PATH}\" image --severity HIGH,CRITICAL backend"
             }
         }
 
-        // 9. DEPLOYMENT CONFIG (BEFORE RUN)
-        stage('Inject Env File') {
+        stage('Trivy Scan Frontend') {
             steps {
-                withCredentials([file(credentialsId: 'backend-env', variable: 'token')]){
-                    bat "copy \"%token%\" backend\\.env"
-                }
-
-                withCredentials([file(credentialsId: 'Frontend-env', variable: 'FE-Token')]){
-                    bat "copy \"%FE-Token%\" frontend\\src\\.env"
-                }
+                bat "\"${TRIVY_PATH}\" image --severity HIGH,CRITICAL frontend"
             }
         }
 
-        // 10. RUN APPLICATION
-        stage('Run Containers') {
+        stage('ECR Login') {
             steps {
-                bat 'docker compose up -d'
+                bat """
+                aws ecr get-login-password --region %AWS_REGION% | docker login --username AWS --password-stdin %ECR_URL%
+                """
+            }
+        }
+
+        stage('Push Backend to ECR') {
+            steps {
+                bat """
+                docker tag backend:latest %ECR_URL%/%BACKEND_IMAGE%:latest
+                docker push %ECR_URL%/%BACKEND_IMAGE%:latest
+                """
+            }
+        }
+
+        stage('Push Frontend to ECR') {
+            steps {
+                bat """
+                docker tag frontend:latest %ECR_URL%/%FRONTEND_IMAGE%:latest
+                docker push %ECR_URL%/%FRONTEND_IMAGE%:latest
+                """
             }
         }
     }
